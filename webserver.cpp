@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <cstring>
 #include <signal.h>
+//day 5 new:文件操作头文件
+#include <cstdio>
+#include <cstdlib>
 
 int main() {
     // 1. 创建 socket
@@ -61,48 +64,83 @@ int main() {
             sscanf(buffer, "GET %s HTTP", path);
             std::cout << "浏览器请求路径：" << path << std::endl;
 
+            // ===================== Day5 核心：读取本地HTML文件 =====================
+            char file_name[128] = {0};
+            // 路由匹配：路径对应本地html文件
+            if (strcmp(path, "/") == 0 || strcmp(path, "/index") == 0) {
+                strcpy(file_name, "index.html");   // 访问首页
+            } else if (strcmp(path, "/hello") == 0) {
+                strcpy(file_name, "hello.html");   // 访问Hello页
+            } else {
+                strcpy(file_name, "404.html");     // 访问错误页
+            }
+
+            // 打开本地文件
+            FILE* file = fopen(file_name, "r");
+            char file_content[4096] = {0};  // 存储文件内容
+            if (file != NULL) 
+            {
+                fread(file_content, 1, sizeof(file_content), file);  // 读取文件
+                fclose(file);
+            } 
+            else 
+            {
+                strcpy(file_content, "<h1>文件读取失败</h1>");
+            }
+
+            // 拼接HTTP响应（UTF-8防止乱码）
+            char response[8192] = {0};
+            sprintf(response,
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n"
+                "\r\n"
+                "%s",
+                file_content);
+
             // const char* response = 
             //     "HTTP/1.1 200 OK\r\n"
             //     "Content-Type: text/html\r\n\r\n"
             //     "<h1>Hello WebServer (Day1)</h1>";
-            const char* response;
-            if (strcmp(path, "/") == 0) 
-            {
-                // 访问根路径：http://ip:8080
-                response = 
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html; charset=utf-8\r\n"
-                // "Content-Type: text/html\r\n"
-                //没加 charset=utf-8，浏览器用默认编码（如 ISO-8859-1）解析 UTF-8 内容
-                "\r\n"
-                "<h1>🏠 首页 (Day4)</h1>";
-            } 
-            else if (strcmp(path, "/hello") == 0) 
-            {
-                // 访问：http://ip:8080/hello
-                response = 
-                 "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html; charset=utf-8\r\n"
-                "\r\n"
-                "<h1>👋 Hello 你好！</h1>";
-            } else if (strcmp(path, "/test") == 0) 
-            {
-                // 访问：http://ip:8080/test
-                response = 
-                "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html; charset=utf-8\r\n"
-                "\r\n"
-                "<h1>🧪 测试页面成功！</h1>";
-            } 
-            else 
-            {
-                // 404 页面
-                response = 
-                "HTTP/1.1 404 Not Found\r\n"
-                "Content-Type: text/html; charset=utf-8\r\n"
-                "\r\n"
-                "<h1>❌ 页面不存在</h1>";
-            }
+
+            //==============将HTML 文字硬编码在代码里，这不是真实服务器的做法======
+            // const char* response;
+            // if (strcmp(path, "/") == 0) 
+            // {
+            //     // 访问根路径：http://ip:8080
+            //     response = 
+            //     "HTTP/1.1 200 OK\r\n"
+            //     "Content-Type: text/html; charset=utf-8\r\n"
+            //     // "Content-Type: text/html\r\n"
+            //     //没加 charset=utf-8，浏览器用默认编码（如 ISO-8859-1）解析 UTF-8 内容
+            //     "\r\n"
+            //     "<h1>🏠 首页 (Day4)</h1>";
+            // } 
+            // else if (strcmp(path, "/hello") == 0) 
+            // {
+            //     // 访问：http://ip:8080/hello
+            //     response = 
+            //      "HTTP/1.1 200 OK\r\n"
+            //     "Content-Type: text/html; charset=utf-8\r\n"
+            //     "\r\n"
+            //     "<h1>👋 Hello 你好！</h1>";
+            // } else if (strcmp(path, "/test") == 0) 
+            // {
+            //     // 访问：http://ip:8080/test
+            //     response = 
+            //     "HTTP/1.1 200 OK\r\n"
+            //     "Content-Type: text/html; charset=utf-8\r\n"
+            //     "\r\n"
+            //     "<h1>🧪 测试页面成功！</h1>";
+            // } 
+            // else 
+            // {
+            //     // 404 页面
+            //     response = 
+            //     "HTTP/1.1 404 Not Found\r\n"
+            //     "Content-Type: text/html; charset=utf-8\r\n"
+            //     "\r\n"
+            //     "<h1>❌ 页面不存在</h1>";
+            // }
                 
             send(new_socket, response, strlen(response), 0);
 

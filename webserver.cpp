@@ -29,27 +29,38 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "服务器启动，等待连接... http://127.0.0.1:8080" << std::endl;
+    std::cout << "loop服务器启动，等待连接... http://127.0.0.1:8080" << std::endl;
 
     // 4. 接受客户端连接
-    socklen_t addr_len = sizeof(address);
-    int new_socket = accept(server_fd, (sockaddr*)&address, &addr_len);
-    if (new_socket < 0) {
-        perror("accept");
-        exit(EXIT_FAILURE);
+    while (true)
+    {
+        socklen_t addr_len = sizeof(address);
+        int new_socket = accept(server_fd, (sockaddr*)&address, &addr_len);
+        if (new_socket < 0) 
+        {
+            perror("accept");
+            exit(EXIT_FAILURE);
+        }
+
+        std::cout << "有客户端连接！" << std::endl;
+
+        char buffer[1024] = {0};
+        read(new_socket, buffer, 1024);
+
+        // 5. 回复浏览器
+        const char* response = 
+            "HTTP/1.1 200 OK\r\n"
+            "Content-Type: text/html\r\n\r\n"
+            "<h1>Hello WebServer (Day1)</h1>";
+        send(new_socket, response, strlen(response), 0);
+
+        usleep(10000);
+
+        // 6. 关闭连接,但是不关闭服务器
+        close(new_socket);
     }
 
-    std::cout << "有客户端连接！" << std::endl;
-
-    // 5. 回复浏览器
-    const char* response = 
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html\r\n\r\n"
-        "<h1>Hello WebServer (Day1)</h1>";
-    send(new_socket, response, strlen(response), 0);
-
-    // 6. 关闭连接
-    close(new_socket);
     close(server_fd);
     return 0;
+    
 }

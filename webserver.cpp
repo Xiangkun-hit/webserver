@@ -7,6 +7,7 @@
 //day 5 new:文件操作头文件
 #include <cstdio>
 #include <cstdlib>
+#include <time.h>
 
 
 // ===================== Day8 新增：根据文件后缀返回Content-Type =====================
@@ -25,6 +26,15 @@ const char* get_content_type(const char* file_name) {
     return "text/html; charset=utf-8";
 }
 // ================================================================================
+
+//打印请求日志
+void log_request(const char* method, const char* path)
+{
+    time_t now = time(NULL);
+    char time_str[30];
+    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+    printf("[%s] %s 请求 | 路径：%s\n", time_str, method, path);
+}
 
 int main() {
     // 1. 创建 socket
@@ -77,8 +87,10 @@ int main() {
             
 
             // ===================== Day4 核心：解析请求路径 =====================
+            //=======统一解析请求
+            char method[16] = {0};
             char path[100] = {0};
-            sscanf(buffer, "%*s %s HTTP", path);
+            sscanf(buffer, "%s %s HTTP", method, path);
             std::cout << "浏览器请求路径：" << path << std::endl;
             // ===================== 新增：屏蔽浏览器图标请求 =====================
             if(strcmp(path, "/favicon.ico") == 0 ||strlen(path) == 0) {
@@ -90,9 +102,13 @@ int main() {
             
             sleep(3);// 模拟慢请求（sleep3秒），测试并发！                
 
+            // 打印日志
+            log_request(method, path);
+            sleep(1);
 
             char response[8192] = {0};
 
+            //===========处理POST提交==============
             if (strstr(buffer, "POST") != NULL && strstr(buffer, "/submit") != NULL)
             {
                 // 解析POST请求体（获取表单数据）

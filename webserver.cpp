@@ -82,8 +82,8 @@ int main() {
         {
             // 子进程：只处理当前客户端
             close(server_fd);
-            char buffer[1024] = {0};
-            read(new_socket, buffer, 1024);
+            char buffer[4096] = {0};
+            read(new_socket, buffer, sizeof(buffer)-1);
             
 
             // ===================== Day4 核心：解析请求路径 =====================
@@ -98,9 +98,7 @@ int main() {
                 std::cout << "block ico/ 空路径\n";
                 exit(0);
             }
-            // ==================================================================
-            
-            sleep(1);// 模拟慢请求（sleep1秒），测试并发！                
+            // ==================================================================               
 
             // 打印日志
             log_request(method, path);
@@ -131,6 +129,7 @@ int main() {
                 close(new_socket);
                 exit(0);
             }
+            //处理get带参数请求
             else if(strstr(path,"?") != NULL)
             {
                 // 查找路径中的 ? 参数分隔符
@@ -197,9 +196,7 @@ int main() {
                         strcpy(file_name, "404.html");     // 访问错误页
                     }
                 }
-
-                
-
+ 
                 // 打开本地文件
                 FILE* file = fopen(file_name, "rb");
                 char* file_content = NULL;
@@ -216,7 +213,7 @@ int main() {
                     file_content = (char*)malloc(file_size);
                     if (file_content == NULL)
                     {
-                        file_content = (char*)"<h1>内存不足<h1>";
+                        file_content = (char*)"<h1>内存不足</h1>";
                         file_size = strlen(file_content);
                     }
                     else
@@ -225,8 +222,6 @@ int main() {
                         file_size = fread(file_content,1,file_size,file);
                     }
 
-                    // //读取文件内容
-                    // fread(file_content, 1, sizeof(file_content), file);  // 读取文件
                     fclose(file);
                     std::cout << "成功读取文件：" << file_name << std::endl;
 
@@ -238,14 +233,6 @@ int main() {
                     file_size = strlen(file_content);
                 }
 
-                // 拼接HTTP响应（UTF-8防止乱码）
-                // char response[8192] = {0};
-                // sprintf(response,
-                //     "HTTP/1.1 200 OK\r\n"
-                //     "Content-Type: text/html; charset=utf-8\r\n"
-                //     "\r\n"
-                //     "%s",
-                //     file_content);
                 // ===================== Day8 修改：动态Content-Type =====================
                 //先发送HTTP响应头
                 char header[256] = {0};
@@ -261,71 +248,13 @@ int main() {
                 send(new_socket, file_content, file_size, 0);
 
                 // 释放动态分配的内存（如果是 malloc 的）
-                if (file != NULL && file_content != NULL && file_content != (char*)"<h1>内存不足</h1>")
+                if (file != NULL && file_content != NULL)
                 {
                     free(file_content);
                 }
-
+                close(new_socket);
                 exit(0);
-                // sprintf(response,
-                //     "HTTP/1.1 200 OK\r\n"
-                //     "Content-Type: %s\r\n"  // 动态替换类型
-                //     "\r\n"
-                //     "%s",
-                //     content_type,
-                //     file_content);
-                // ====================================================================
-
-                // const char* response = 
-                //     "HTTP/1.1 200 OK\r\n"
-                //     "Content-Type: text/html\r\n\r\n"
-                //     "<h1>Hello WebServer (Day1)</h1>";
-
-                //==============将HTML 文字硬编码在代码里，这不是真实服务器的做法======
-                // const char* response;
-                // if (strcmp(path, "/") == 0) 
-                // {
-                //     // 访问根路径：http://ip:8080
-                //     response = 
-                //     "HTTP/1.1 200 OK\r\n"
-                //     "Content-Type: text/html; charset=utf-8\r\n"
-                //     // "Content-Type: text/html\r\n"
-                //     //没加 charset=utf-8，浏览器用默认编码（如 ISO-8859-1）解析 UTF-8 内容
-                //     "\r\n"
-                //     "<h1>🏠 首页 (Day4)</h1>";
-                // } 
-                // else if (strcmp(path, "/hello") == 0) 
-                // {
-                //     // 访问：http://ip:8080/hello
-                //     response = 
-                //      "HTTP/1.1 200 OK\r\n"
-                //     "Content-Type: text/html; charset=utf-8\r\n"
-                //     "\r\n"
-                //     "<h1>👋 Hello 你好！</h1>";
-                // } else if (strcmp(path, "/test") == 0) 
-                // {
-                //     // 访问：http://ip:8080/test
-                //     response = 
-                //     "HTTP/1.1 200 OK\r\n"
-                //     "Content-Type: text/html; charset=utf-8\r\n"
-                //     "\r\n"
-                //     "<h1>🧪 测试页面成功！</h1>";
-                // } 
-                // else 
-                // {
-                //     // 404 页面
-                //     response = 
-                //     "HTTP/1.1 404 Not Found\r\n"
-                //     "Content-Type: text/html; charset=utf-8\r\n"
-                //     "\r\n"
-                //     "<h1>❌ 页面不存在</h1>";
-                // }
-            }
-                            
-            // send(new_socket, response, strlen(response), 0);
-            // close(new_socket);
-            // std::cout << "连接成功,kill子进程" << std::endl;
-            // exit(0);
+            }                           
         }
         else
         {

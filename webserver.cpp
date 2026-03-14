@@ -56,15 +56,10 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "交互式并发loop服务器启动,等待连接... http://127.0.0.1:8080" << std::endl;
+    std::cout << "POST交互式并发loop服务器启动,等待连接... http://127.0.0.1:8080" << std::endl;
     signal(SIGCHLD, SIG_IGN); // 自动清理子进程
 
 
-
-    char header[256] = {0};
-
-    char file_content[4096] = {0};  // 存储文件内容
-    size_t file_size = 0;
     // 4. 循环接受客户端连接
     while (true)
     {
@@ -83,7 +78,7 @@ int main() {
 
             // ===================== Day4 核心：解析请求路径 =====================
             char path[100] = {0};
-            sscanf(buffer, "GET %s HTTP", path);
+            sscanf(buffer, "%*s %s HTTP", path);
             std::cout << "浏览器请求路径：" << path << std::endl;
             // ===================== 新增：屏蔽浏览器图标请求 =====================
             if(strcmp(path, "/favicon.ico") == 0 ||strlen(path) == 0) {
@@ -97,30 +92,55 @@ int main() {
 
 
             char response[8192] = {0};
-            // 查找路径中的 ? 参数分隔符
-            char *param_ptr = strstr(path, "?");
-            if (param_ptr != NULL) 
+
+            if (strstr(buffer, "POST") != NULL && strstr(buffer, "/submit") != NULL)
             {
-                // 1. 截断路径，只保留前面的路由
-                *param_ptr = '\0';
-                // 2. 指针后移，拿到参数部分（name=xxx）
-                char *params = param_ptr + 1;
+                // 解析POST请求体（获取表单数据）
+                char* body = strstr(buffer, "\r\n\r\n");
+                if (body != NULL) body += 4;
 
-                // 解析 name 参数
+                // 解析name参数
                 char name[50] = {0};
-                sscanf(params, "name=%s", name);
+                sscanf(body, "name=%s", name);
 
-                // 动态生成响应：根据用户传入的名字返回内容
+                // POST响应
                 sprintf(response,
                     "HTTP/1.1 200 OK\r\n"
                     "Content-Type: text/html; charset=utf-8\r\n\r\n"
-                    "<h1>🎉 动态交互成功！</h1>"
-                    "<h2>你好，%s!</h2>"
-                        // ===================== 【Day7 新增：返回表单链接】 =====================
-                    "<a href='/form'>返回表单页面</a>"
-                    "<p>这是服务器为你定制的内容</p>",
+                    "<h1>✅ POST表单提交成功!</h1>"
+                    "<h2>欢迎你：%s</h2>"
+                    "<a href='/post'>返回POST表单页面</a>",
                     name);
             }
+            else if(strstr(path,"?") != NULL)
+            {
+                // 查找路径中的 ? 参数分隔符
+                char *param_ptr = strstr(path, "?");
+                if (param_ptr != NULL) 
+                {
+                    // 1. 截断路径，只保留前面的路由
+                    *param_ptr = '\0';
+                    // 2. 指针后移，拿到参数部分（name=xxx）
+                    char *params = param_ptr + 1;
+
+                    // 解析 name 参数
+                    char name[50] = {0};
+                    sscanf(params, "name=%s", name);
+
+                    // 动态生成响应：根据用户传入的名字返回内容
+                    sprintf(response,
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: text/html; charset=utf-8\r\n\r\n"
+                        "<h1>🎉 动态交互成功！</h1>"
+                        "<h2>你好，%s!</h2>"
+                            // ===================== 【Day7 新增：返回表单链接】 =====================
+                        "<a href='/form'>返回表单页面</a>"
+                        "<p>这是服务器为你定制的内容</p>",
+                        name);
+                }
+            }
+            
+            //处理静态文件/页面
             else
             {
                     // ===================== Day5 核心：读取本地HTML文件 =====================
@@ -147,6 +167,9 @@ int main() {
                     else if (strcmp(path, "/form") == 0) {
                         strcpy(file_name, "form.html");   // 访问form页
                     } 
+                    else if (strcmp(path, "/post") == 0) {
+                        strcpy(file_name, "form_post.html");   // 访问form页
+                    } 
                     else 
                     {
                         strcpy(file_name, "404.html");     // 访问错误页
@@ -157,8 +180,8 @@ int main() {
 
                 // 打开本地文件
                 FILE* file = fopen(file_name, "rb");
-                // char file_content[4096] = {0};  // 存储文件内容
-                // size_t file_size = 0;
+                char file_content[4096] = {0};  // 存储文件内容
+                size_t file_size = 0;
                 if (file != NULL) 
                 {
                     //获取文件总大小
@@ -188,12 +211,18 @@ int main() {
                 //     file_content);
                 // ===================== Day8 修改：动态Content-Type =====================
                 //先发送HTTP响应头
-                
+                char header[256] = {0};
                 const char* content_type = get_content_type(file_name);
                 snprintf(header, sizeof(header),
                         "HTTP/1.1 200 OK\r\n"
                         "Content-Type: %s\r\n\r\n",
                         content_type);
+                
+                send(new_socket, header, strlen(header), 0);
+
+                // 再发送文件内容（二进制数据）
+                send(new_socket, file_content, file_size, 0);
+                exit(0);
                 // sprintf(response,
                 //     "HTTP/1.1 200 OK\r\n"
                 //     "Content-Type: %s\r\n"  // 动态替换类型
@@ -250,11 +279,6 @@ int main() {
             }
                             
             send(new_socket, response, strlen(response), 0);
-            send(new_socket, header, strlen(header), 0);
-
-            // 再发送文件内容（二进制数据）
-            send(new_socket, file_content, file_size, 0);
-
             close(new_socket);
             std::cout << "连接成功,kill子进程" << std::endl;
             exit(0);

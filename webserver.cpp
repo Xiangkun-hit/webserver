@@ -8,6 +8,24 @@
 #include <cstdio>
 #include <cstdlib>
 
+
+// ===================== Day8 新增：根据文件后缀返回Content-Type =====================
+const char* get_content_type(const char* file_name) {
+    // 查找文件名最后一个 .（后缀）
+    const char* ext = strrchr(file_name, '.');
+    if (ext == NULL) return "text/html; charset=utf-8";
+    
+    if (strcmp(ext, ".html") == 0) return "text/html; charset=utf-8";
+    if (strcmp(ext, ".css") == 0)  return "text/css";
+    if (strcmp(ext, ".js") == 0)   return "application/javascript";
+    if (strcmp(ext, ".png") == 0) return "image/png";
+    if (strcmp(ext, ".jpg") == 0) return "image/jpeg";
+    if (strcmp(ext, ".ico") == 0) return "image/x-icon";
+    
+    return "text/html; charset=utf-8";
+}
+// ================================================================================
+
 int main() {
     // 1. 创建 socket
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -41,6 +59,12 @@ int main() {
     std::cout << "交互式并发loop服务器启动,等待连接... http://127.0.0.1:8080" << std::endl;
     signal(SIGCHLD, SIG_IGN); // 自动清理子进程
 
+
+
+    char header[256] = {0};
+
+    char file_content[4096] = {0};  // 存储文件内容
+    size_t file_size = 0;
     // 4. 循环接受客户端连接
     while (true)
     {
@@ -101,26 +125,48 @@ int main() {
             {
                     // ===================== Day5 核心：读取本地HTML文件 =====================
                 char file_name[128] = {0};
-                // 路由匹配：路径对应本地html文件
-                if (strcmp(path, "/") == 0 || strcmp(path, "/index") == 0) {
-                    strcpy(file_name, "index.html");   // 访问首页
-                } else if (strcmp(path, "/hello") == 0) {
-                    strcpy(file_name, "hello.html");   // 访问Hello页
-                }
-                //=============Day7 增加form页面
-                else if (strcmp(path, "/form") == 0) {
-                    strcpy(file_name, "form.html");   // 访问form页
+                // 先判断是否是带后缀的静态文件（.png/.css/.js等）
+                const char* ext = strrchr(path, '.');
+                if (ext != NULL && strlen(ext) > 1) {
+                    // 去掉路径开头的 /，直接作为文件名
+                    if (path[0] == '/') {
+                        snprintf(file_name, sizeof(file_name), "%s", path + 1);
+                    } else {
+                        snprintf(file_name, sizeof(file_name), "%s", path);
+                    }
                 } 
-                else 
+                else
                 {
-                    strcpy(file_name, "404.html");     // 访问错误页
+                    // 路由匹配：路径对应本地html文件
+                    if (strcmp(path, "/") == 0 || strcmp(path, "/index") == 0) {
+                        strcpy(file_name, "index.html");   // 访问首页
+                    } else if (strcmp(path, "/hello") == 0) {
+                        strcpy(file_name, "hello.html");   // 访问Hello页
+                    }
+                    //=============Day7 增加form页面
+                    else if (strcmp(path, "/form") == 0) {
+                        strcpy(file_name, "form.html");   // 访问form页
+                    } 
+                    else 
+                    {
+                        strcpy(file_name, "404.html");     // 访问错误页
+                    }
                 }
 
+                
+
                 // 打开本地文件
-                FILE* file = fopen(file_name, "r");
-                char file_content[4096] = {0};  // 存储文件内容
+                FILE* file = fopen(file_name, "rb");
+                // char file_content[4096] = {0};  // 存储文件内容
+                // size_t file_size = 0;
                 if (file != NULL) 
                 {
+                    //获取文件总大小
+                    fseek(file,0,SEEK_END);
+                    file_size = ftell(file);
+                    fseek(file,0,SEEK_SET);
+
+                    //读取文件内容
                     fread(file_content, 1, sizeof(file_content), file);  // 读取文件
                     fclose(file);
                     std::cout << "成功读取文件：" << file_name << std::endl;
@@ -129,16 +175,33 @@ int main() {
                 {
                     strcpy(file_content, "<h1>文件读取失败</h1>");
                     std::cout << "读取文件失败：" << file_name << std::endl;
+                    file_size = strlen(file_content);
                 }
 
                 // 拼接HTTP响应（UTF-8防止乱码）
                 // char response[8192] = {0};
-                sprintf(response,
-                    "HTTP/1.1 200 OK\r\n"
-                    "Content-Type: text/html; charset=utf-8\r\n"
-                    "\r\n"
-                    "%s",
-                    file_content);
+                // sprintf(response,
+                //     "HTTP/1.1 200 OK\r\n"
+                //     "Content-Type: text/html; charset=utf-8\r\n"
+                //     "\r\n"
+                //     "%s",
+                //     file_content);
+                // ===================== Day8 修改：动态Content-Type =====================
+                //先发送HTTP响应头
+                
+                const char* content_type = get_content_type(file_name);
+                snprintf(header, sizeof(header),
+                        "HTTP/1.1 200 OK\r\n"
+                        "Content-Type: %s\r\n\r\n",
+                        content_type);
+                // sprintf(response,
+                //     "HTTP/1.1 200 OK\r\n"
+                //     "Content-Type: %s\r\n"  // 动态替换类型
+                //     "\r\n"
+                //     "%s",
+                //     content_type,
+                //     file_content);
+                // ====================================================================
 
                 // const char* response = 
                 //     "HTTP/1.1 200 OK\r\n"
@@ -187,6 +250,10 @@ int main() {
             }
                             
             send(new_socket, response, strlen(response), 0);
+            send(new_socket, header, strlen(header), 0);
+
+            // 再发送文件内容（二进制数据）
+            send(new_socket, file_content, file_size, 0);
 
             close(new_socket);
             std::cout << "连接成功,kill子进程" << std::endl;

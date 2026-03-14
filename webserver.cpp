@@ -53,12 +53,57 @@ int main() {
             char buffer[1024] = {0};
             read(new_socket, buffer, 1024);
             
-            sleep(5);// 模拟慢请求（sleep5秒），测试并发！
+            sleep(3);// 模拟慢请求（sleep3秒），测试并发！
 
-            const char* response = 
+
+            // ===================== Day4 核心：解析请求路径 =====================
+            char path[100] = {0};
+            sscanf(buffer, "GET %s HTTP", path);
+            std::cout << "浏览器请求路径：" << path << std::endl;
+
+            // const char* response = 
+            //     "HTTP/1.1 200 OK\r\n"
+            //     "Content-Type: text/html\r\n\r\n"
+            //     "<h1>Hello WebServer (Day1)</h1>";
+            const char* response;
+            if (strcmp(path, "/") == 0) 
+            {
+                // 访问根路径：http://ip:8080
+                response = 
                 "HTTP/1.1 200 OK\r\n"
-                "Content-Type: text/html\r\n\r\n"
-                "<h1>Hello WebServer (Day1)</h1>";
+                "Content-Type: text/html; charset=utf-8\r\n"
+                // "Content-Type: text/html\r\n"
+                //没加 charset=utf-8，浏览器用默认编码（如 ISO-8859-1）解析 UTF-8 内容
+                "\r\n"
+                "<h1>🏠 首页 (Day4)</h1>";
+            } 
+            else if (strcmp(path, "/hello") == 0) 
+            {
+                // 访问：http://ip:8080/hello
+                response = 
+                 "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n"
+                "\r\n"
+                "<h1>👋 Hello 你好！</h1>";
+            } else if (strcmp(path, "/test") == 0) 
+            {
+                // 访问：http://ip:8080/test
+                response = 
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n"
+                "\r\n"
+                "<h1>🧪 测试页面成功！</h1>";
+            } 
+            else 
+            {
+                // 404 页面
+                response = 
+                "HTTP/1.1 404 Not Found\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n"
+                "\r\n"
+                "<h1>❌ 页面不存在</h1>";
+            }
+                
             send(new_socket, response, strlen(response), 0);
 
             close(new_socket);

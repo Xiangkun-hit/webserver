@@ -100,7 +100,7 @@ int main() {
             }
             // ==================================================================
             
-            sleep(3);// 模拟慢请求（sleep3秒），测试并发！                
+            sleep(1);// 模拟慢请求（sleep1秒），测试并发！                
 
             // 打印日志
             log_request(method, path);
@@ -109,7 +109,7 @@ int main() {
             char response[8192] = {0};
 
             //===========处理POST提交==============
-            if (strstr(buffer, "POST") != NULL && strstr(buffer, "/submit") != NULL)
+            if (strcmp(method, "POST") == 0  && strcmp(path, "/submit") == 0)
             {
                 // 解析POST请求体（获取表单数据）
                 char* body = strstr(buffer, "\r\n\r\n");
@@ -127,6 +127,9 @@ int main() {
                     "<h2>欢迎你：%s</h2>"
                     "<a href='/post'>返回POST表单页面</a>",
                     name);
+                send(new_socket, response, strlen(response), 0);
+                close(new_socket);
+                exit(0);
             }
             else if(strstr(path,"?") != NULL)
             {
@@ -153,6 +156,9 @@ int main() {
                         "<a href='/form'>返回表单页面</a>"
                         "<p>这是服务器为你定制的内容</p>",
                         name);
+                    send(new_socket, response, strlen(response), 0);
+                    close(new_socket);
+                    exit(0);
                 }
             }
             
@@ -196,7 +202,8 @@ int main() {
 
                 // 打开本地文件
                 FILE* file = fopen(file_name, "rb");
-                char file_content[4096] = {0};  // 存储文件内容
+                char* file_content = NULL;
+                // char file_content_empty[4096] = {0};  // 存储文件内容
                 size_t file_size = 0;
                 if (file != NULL) 
                 {
@@ -205,14 +212,28 @@ int main() {
                     file_size = ftell(file);
                     fseek(file,0,SEEK_SET);
 
-                    //读取文件内容
-                    fread(file_content, 1, sizeof(file_content), file);  // 读取文件
+                    //动态分配足够大的缓冲区
+                    file_content = (char*)malloc(file_size);
+                    if (file_content == NULL)
+                    {
+                        file_content = (char*)"<h1>内存不足<h1>";
+                        file_size = strlen(file_content);
+                    }
+                    else
+                    {
+                        //读取完整文件
+                        file_size = fread(file_content,1,file_size,file);
+                    }
+
+                    // //读取文件内容
+                    // fread(file_content, 1, sizeof(file_content), file);  // 读取文件
                     fclose(file);
                     std::cout << "成功读取文件：" << file_name << std::endl;
+
                 } 
                 else 
                 {
-                    strcpy(file_content, "<h1>文件读取失败</h1>");
+                    file_content = (char*) "<h1>文件读取失败</h1>";
                     std::cout << "读取文件失败：" << file_name << std::endl;
                     file_size = strlen(file_content);
                 }
@@ -238,6 +259,13 @@ int main() {
 
                 // 再发送文件内容（二进制数据）
                 send(new_socket, file_content, file_size, 0);
+
+                // 释放动态分配的内存（如果是 malloc 的）
+                if (file != NULL && file_content != NULL && file_content != (char*)"<h1>内存不足</h1>")
+                {
+                    free(file_content);
+                }
+
                 exit(0);
                 // sprintf(response,
                 //     "HTTP/1.1 200 OK\r\n"
@@ -294,10 +322,10 @@ int main() {
                 // }
             }
                             
-            send(new_socket, response, strlen(response), 0);
-            close(new_socket);
-            std::cout << "连接成功,kill子进程" << std::endl;
-            exit(0);
+            // send(new_socket, response, strlen(response), 0);
+            // close(new_socket);
+            // std::cout << "连接成功,kill子进程" << std::endl;
+            // exit(0);
         }
         else
         {

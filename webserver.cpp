@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
+#include <signal.h>
 
 int main() {
     // 1. 创建 socket
@@ -11,6 +12,11 @@ int main() {
         perror("socket failed");
         exit(EXIT_FAILURE);
     }
+
+
+    // ========== 端口复用（解决端口占用报错，第三天必加）==========
+    int opt = 1;
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
 
     // 2. 绑定 IP 和端口
     sockaddr_in address;
@@ -29,35 +35,41 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "loop服务器启动，等待连接... http://127.0.0.1:8080" << std::endl;
+    std::cout << "并发loop服务器启动,等待连接... http://127.0.0.1:8080" << std::endl;
+    signal(SIGCHLD, SIG_IGN); // 自动清理子进程
 
-    // 4. 接受客户端连接
+    // 4. 循环接受客户端连接
     while (true)
     {
         socklen_t addr_len = sizeof(address);
         int new_socket = accept(server_fd, (sockaddr*)&address, &addr_len);
-        if (new_socket < 0) 
+        std::cout << "新客户端连接！\n";
+
+        pid_t pid = fork();
+        if (pid == 0)
         {
-            perror("accept");
-            exit(EXIT_FAILURE);
+            // 子进程：只处理当前客户端
+            close(server_fd);
+            char buffer[1024] = {0};
+            read(new_socket, buffer, 1024);
+            
+            sleep(5);// 模拟慢请求（sleep5秒），测试并发！
+
+            const char* response = 
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html\r\n\r\n"
+                "<h1>Hello WebServer (Day1)</h1>";
+            send(new_socket, response, strlen(response), 0);
+
+            close(new_socket);
+            std::cout << "连接成功,kill子进程" << std::endl;
+            exit(0);
         }
-
-        std::cout << "有客户端连接！" << std::endl;
-
-        char buffer[1024] = {0};
-        read(new_socket, buffer, 1024);
-
-        // 5. 回复浏览器
-        const char* response = 
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n\r\n"
-            "<h1>Hello WebServer (Day1)</h1>";
-        send(new_socket, response, strlen(response), 0);
-
-        usleep(10000);
-
-        // 6. 关闭连接,但是不关闭服务器
-        close(new_socket);
+        else
+        {
+            // 父进程：继续等待新连接，不卡顿
+            close(new_socket);
+        }
     }
 
     close(server_fd);

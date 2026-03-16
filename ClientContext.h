@@ -14,6 +14,8 @@ struct ClientContext {
     char* write_buf;        // 写缓冲区
     int write_len;          // 当前待发送长度
 
+    bool keep_alive;
+
     // 构造函数：初始化成员
     ClientContext()
         : fd(-1),
@@ -22,7 +24,8 @@ struct ClientContext {
           read_buf(nullptr),
           read_len(0),
           write_buf(nullptr),
-          write_len(0) {}
+          write_len(0) ,
+          keep_alive(false) {}
 
     // 析构函数：释放动态分配内存
     ~ClientContext() {

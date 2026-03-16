@@ -270,13 +270,27 @@ void handle_client(ClientContext* ctx)
     char path[256] = {0};
     sscanf(buffer, "%15s %255s HTTP", method, path);
 
+    // 解析代码的后面，添加：
+    // 判断是否长连接（HTTP/1.1 默认开启 keep-alive）
+    ctx->keep_alive = false;
+    // 兼容标准 Connection 请求头
+    if (strstr(ctx->read_buf, "Connection: keep-alive") != nullptr 
+        || strstr(ctx->read_buf, "Connection:Keep-Alive") != nullptr) {
+        ctx->keep_alive = true;
+    }
+    // HTTP/1.1 默认长连接（可选增强）
+    if (strstr(ctx->read_buf, "HTTP/1.1") != nullptr) {
+        ctx->keep_alive = true;
+    }
+
     if (strlen(method) == 0 || strlen(path) == 0) {
         const char* body = "<h1>400 Bad Request</h1>";
         build_response(ctx,
                        "HTTP/1.1 400 Bad Request\r\n",
                        "text/html; charset=utf-8",
                        body,
-                       strlen(body));
+                       strlen(body),
+                        ctx->keep_alive ? "keep-alive" : "close");
         return;
     }
 
@@ -290,7 +304,8 @@ void handle_client(ClientContext* ctx)
                        "HTTP/1.1 204 No Content\r\n",
                        "text/plain; charset=utf-8",
                        body,
-                       0);
+                       0,
+                        ctx->keep_alive ? "keep-alive" : "close");
         return;
     }
 
@@ -318,7 +333,8 @@ void handle_client(ClientContext* ctx)
                        "HTTP/1.1 200 OK\r\n",
                        "text/html; charset=utf-8",
                        html,
-                       strlen(html));
+                       strlen(html),
+                    ctx->keep_alive ? "keep-alive" : "close");
         return;
     }
 
@@ -353,7 +369,8 @@ void handle_client(ClientContext* ctx)
                            "HTTP/1.1 200 OK\r\n",
                            "text/html; charset=utf-8",
                            html,
-                           strlen(html));
+                           strlen(html),
+                            ctx->keep_alive ? "keep-alive" : "close");
             return;
         }
     }
@@ -378,13 +395,15 @@ void handle_client(ClientContext* ctx)
                                "HTTP/1.1 404 Not Found\r\n",
                                content_type,
                                file_content,
-                               file_size);
+                               file_size,
+                            ctx->keep_alive ? "keep-alive" : "close");
             } else {
                 build_response(ctx,
                                "HTTP/1.1 200 OK\r\n",
                                content_type,
                                file_content,
-                               file_size);
+                               file_size,
+                            ctx->keep_alive ? "keep-alive" : "close");
             }
 
             delete[] file_content;
@@ -399,7 +418,8 @@ void handle_client(ClientContext* ctx)
                            "HTTP/1.1 404 Not Found\r\n",
                            "text/html; charset=utf-8",
                            body,
-                           strlen(body));
+                           strlen(body),
+                           ctx->keep_alive ? "keep-alive" : "close");
             return;
         }
     }

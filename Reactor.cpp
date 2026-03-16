@@ -249,8 +249,25 @@ void Reactor::handleWrite(ClientContext* ctx) {
     // 发送完成 → 清理上下文并关闭连接
     // 当前演示版本按短连接处理：响应发完后直接关闭
     if (len == 0) {
-        cout << "响应发送完成，关闭连接：" << fd << endl;
-        closeContext(ctx);
+        cout << "响应发送完成：" << fd << endl;
+
+        // 1. 释放写缓冲区（固定操作）
+        delete[] ctx->write_buf;
+        ctx->write_buf = nullptr;
+        ctx->write_len = 0;
+        
+        // 2. ✅ 长连接：重置读缓冲区，重新监听读事件（复用连接）
+        if (ctx->keep_alive) {
+            cout << "长连接复用：" << fd << endl;
+            ctx->read_len = 0;          // 重置读长度
+            memset(ctx->read_buf, 0, 4096); // 清空读缓冲区
+            modEvent(ctx, EPOLLIN);    // 切换回监听客户端请求
+        }
+        // 3. ❌ 短连接：关闭并释放连接（原有逻辑）
+        else {
+            cout << "短连接关闭：" << fd << endl;
+            closeContext(ctx);
+        }
     } else {
         // 如果还没发完，则继续监听写事件
         modEvent(ctx, EPOLLOUT);

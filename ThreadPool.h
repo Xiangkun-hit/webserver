@@ -6,6 +6,8 @@
 #include <functional>
 #include "ClientContext.h"
 using namespace std;
+#include "HttpParser.h"
+#include "Log.h"
 
 // ===================== 任务结构 =====================
 // 线程池中的每个任务，携带一个客户端上下文

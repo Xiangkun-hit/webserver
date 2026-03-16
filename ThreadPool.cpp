@@ -32,6 +32,7 @@ static void log_request(const char* method, const char* path)
     char time_str[30];
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
     printf("[%s] %s 请求 | 路径：%s\n", time_str, method, path);
+    // log_info("%s %s", method, path);
 }
 
 // ===================== 工具函数：URL简单解码（仅处理最常见场景） =====================

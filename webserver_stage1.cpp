@@ -17,30 +17,32 @@ using namespace std;
 #include <errno.h>
 #include "Reactor.h"
 
-// ===================== Day8 新增：根据文件后缀返回Content-Type =====================
-const char* get_content_type(const char* file_name) {
-    // 查找文件名最后一个 .（后缀）
-    const char* ext = strrchr(file_name, '.');
-    if (ext == NULL) return "text/html; charset=utf-8";
+// // ===================== Day8 新增：根据文件后缀返回Content-Type =====================
+// const char* get_content_type(const char* file_name) {
+//     // 查找文件名最后一个 .（后缀）
+//     const char* ext = strrchr(file_name, '.');
+//     if (ext == NULL) return "text/html; charset=utf-8";
     
-    if (strcmp(ext, ".html") == 0) return "text/html; charset=utf-8";
-    if (strcmp(ext, ".css") == 0)  return "text/css";
-    if (strcmp(ext, ".js") == 0)   return "application/javascript";
-    if (strcmp(ext, ".png") == 0) return "image/png";
-    if (strcmp(ext, ".jpg") == 0) return "image/jpeg";
-    if (strcmp(ext, ".ico") == 0) return "image/x-icon";
+//     if (strcmp(ext, ".html") == 0) return "text/html; charset=utf-8";
+//     if (strcmp(ext, ".css") == 0)  return "text/css";
+//     if (strcmp(ext, ".js") == 0)   return "application/javascript";
+//     if (strcmp(ext, ".png") == 0) return "image/png";
+//     if (strcmp(ext, ".jpg") == 0) return "image/jpeg";
+//     if (strcmp(ext, ".ico") == 0) return "image/x-icon";
     
-    return "text/html; charset=utf-8";
-}
+//     return "text/html; charset=utf-8";
+// }
 
 //打印请求日志
-void log_request(const char* method, const char* path)
-{
-    time_t now = time(NULL);
-    char time_str[30];
-    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
-    printf("[%s] %s 请求 | 路径：%s\n", time_str, method, path);
-}
+// void log_request(const char* method, const char* path)
+// {
+//     time_t now = time(NULL);
+//     char time_str[30];
+//     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&now));
+//     printf("[%s] %s 请求 | 路径：%s\n", time_str, method, path);
+// }
+// ===================== 工具函数：打印请求日志 =====================
+
 
 int main() {
     // 1. 创建 socket

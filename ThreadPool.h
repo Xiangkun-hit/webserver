@@ -1,44 +1,51 @@
-#ifndef THREAD_POOL_H
-#define THREAD_POOL_H
+#ifndef THREADPOOL_H
+#define THREADPOOL_H
 
-#include <pthread.h>
 #include <queue>
-// 网络相关头文件
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cstring>
-#include "Utils.h"
-#include <sys/epoll.h>  // epoll 核心头文件
+#include <pthread.h>
+#include <functional>
+#include "ClientContext.h"
+using namespace std;
 
-// 任务结构体
+// ===================== 任务结构 =====================
+// 线程池中的每个任务，携带一个客户端上下文
 struct Task {
-    int client_fd;
+    ClientContext* ctx;
 };
 
-// 线程池类
+// ===================== 线程池类 =====================
 class ThreadPool {
 private:
-    std::queue<Task> task_queue;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int thread_num;
-    bool is_close;
+    int thread_num;                  // 线程数量
+    bool is_close;                   // 线程池是否关闭
+    queue<Task> task_queue;          // 任务队列
+
+    pthread_mutex_t mutex;           // 互斥锁
+    pthread_cond_t cond;             // 条件变量
+
+    // 任务处理完成后的回调
+    // 典型用途：业务线程处理完请求后，通知Reactor把该fd切换为EPOLLOUT
+    std::function<void(ClientContext*)> finish_callback;
 
 public:
-    ThreadPool(int num);
+    // 构造函数：创建指定数量的线程
+    ThreadPool(int num = 8);
+
+    // 析构函数：关闭线程池，释放资源
     ~ThreadPool();
+
+    // 添加任务
     void addTask(Task task);
 
-private:
+    // 设置任务完成回调
+    void setFinishCallback(std::function<void(ClientContext*)> cb);
+
+    // 工作线程函数
     static void* worker(void* arg);
 };
 
-
-
-// 声明业务处理函数
-void handle_client(int client_fd);
-
-void log_request(const char* method, const char* path);
+// ===================== 业务逻辑函数 =====================
+// 作用：处理已经读入ctx->read_buf中的HTTP请求，生成响应到ctx->write_buf
+void handle_client(ClientContext* ctx);
 
 #endif

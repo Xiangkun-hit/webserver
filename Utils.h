@@ -6,6 +6,7 @@
 #include <time.h>
 #include <cstdio>
 #include <cstring>
+#include <netinet/in.h>
 
 // ==================== 公共函数声明 ====================
 // 日志打印函数（声明，实现还在你的主文件里）
